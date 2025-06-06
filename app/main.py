@@ -1,13 +1,23 @@
-import socket  # noqa: F401
+import asyncio
 
+async def respond(reader, writer):
+    try:
+        while True:
+            await reader.read(1024)
+            writer.write(b"+PONG\r\n")
+            await writer.drain()
+    finally:
+        writer.close()
+        await writer.wait_closed()
 
-def main():
-    server_socket = socket.create_server(("localhost", 6379), reuse_port=True)
-    conn, _ = server_socket.accept() # wait for client
-    while True:
-        conn.recv(1024)
-        conn.sendall(b"+PONG\r\n")
+async def main():
+    server = await asyncio.start_server(respond, "localhost", 6379)
+    addrs = ', '.join(str(sock.getsockname()) for sock in server.sockets)
+    print(f'Serving on {addrs}')
+
+    async with server:
+        await server.serve_forever()
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

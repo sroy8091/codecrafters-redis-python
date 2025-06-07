@@ -1,10 +1,14 @@
 import asyncio
 
+from app.commands import handle_input
+
+
 async def respond(reader, writer):
     try:
         while True:
-            await reader.read(1024)
-            writer.write(b"+PONG\r\n")
+            data = await reader.read(1024)
+            print(f"Received: {data}")
+            writer.write(handle_input(data))
             await writer.drain()
     finally:
         writer.close()

@@ -1,0 +1,3 @@
+TODO:
+1. Segregate in memory and persistent
+2. Handle the storage for dir and dbfilename in a way that client can use this key - not feasible

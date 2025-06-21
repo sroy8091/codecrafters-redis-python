@@ -1,6 +1,8 @@
 import asyncio
+import argparse
 
 from app.commands import handle_input
+from app.memory import set_memory_file
 
 
 async def respond(reader, writer):
@@ -24,4 +26,11 @@ async def main():
 
 
 if __name__ == "__main__":
+    # add args
+    parser = argparse.ArgumentParser(description='Redis server implementation')
+    parser.add_argument('--dir', type=str, help='the path to the directory where the RDB file is stored')
+    parser.add_argument('--dbfilename', type=str, help='the name of the RDB file')
+    args = parser.parse_args()
+    set_memory_file(args)
+
     asyncio.run(main())

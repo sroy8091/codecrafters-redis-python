@@ -1,23 +1,12 @@
 import asyncio
 import argparse
 
-from app.commands import handle_input
-from app.memory import set_memory_file
+from app.memory import RedisStore
+from app.server import ServerHandler
 
-
-async def respond(reader, writer):
-    try:
-        while True:
-            data = await reader.read(1024)
-            print(f"Received: {data}")
-            writer.write(handle_input(data))
-            await writer.drain()
-    finally:
-        writer.close()
-        await writer.wait_closed()
-
-async def main():
-    server = await asyncio.start_server(respond, "localhost", 6379)
+async def main(storage):
+    handler = ServerHandler(storage)
+    server = await asyncio.start_server(handler.respond, "localhost", 6379)
     addrs = ', '.join(str(sock.getsockname()) for sock in server.sockets)
     print(f'Serving on {addrs}')
 
@@ -31,6 +20,6 @@ if __name__ == "__main__":
     parser.add_argument('--dir', type=str, help='the path to the directory where the RDB file is stored')
     parser.add_argument('--dbfilename', type=str, help='the name of the RDB file')
     args = parser.parse_args()
-    set_memory_file(args)
+    storage = RedisStore(args.dir, args.dbfilename)
 
-    asyncio.run(main())
+    asyncio.run(main(storage))

@@ -1,4 +1,4 @@
 TODO:
 1. Segregate in memory and persistent
 2. Handle the storage for dir and dbfilename in a way that client can use this key - not feasible
-3. Find a way to avoid loading the whole rdb file for each get
+3. Find a way to avoid loading the whole rdb file for each get instead of think of attaching pointers with connection for both read and write

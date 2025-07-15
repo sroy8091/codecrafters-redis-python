@@ -8,6 +8,7 @@ class Action(Enum):
     SET = "SET"
     GET = "GET"
     CONFIG = "CONFIG"
+    KEYS = "KEYS"
 
 
 class RedisAction:
@@ -17,7 +18,8 @@ class RedisAction:
             "ECHO": lambda x: x[0],
             "SET": self.set_memory,
             "GET": self.get_memory,
-            "CONFIG": self.get_config
+            "CONFIG": self.get_config,
+            "KEYS": self.get_keys
         }
         self.storage = storage
 
@@ -26,6 +28,8 @@ class RedisAction:
         encoder = RESPEncoder()
         ins = decoder.decode(data)
         print(f"decoded data {ins} {type(ins)}")
+        if ins is None:
+            return encoder.encode("ERR: Invalid input")
         if "PING" in ins:
             command, args = "PING", None
         else:
@@ -51,3 +55,6 @@ class RedisAction:
             return self.storage.get_dir()
         else:
             return self.storage.get_dbfielname()
+
+    def get_keys(self, data):
+        return self.storage.fetch_all_keys()

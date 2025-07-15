@@ -62,4 +62,5 @@ class RedisAction:
         return self.storage.fetch_all_keys()
 
     def get_info(self, data):
-        return "role:master"
+        role = "master" if self.storage.get_replicaof() is None else "slave"
+        return f"role:{role}"

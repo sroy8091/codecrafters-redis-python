@@ -20,7 +20,10 @@ if __name__ == "__main__":
     parser.add_argument('--dir', type=str, help='the path to the directory where the RDB file is stored')
     parser.add_argument('--dbfilename', type=str, help='the name of the RDB file')
     parser.add_argument('--port', type=int, default=6379, help='the port to run the server on')
+    parser.add_argument('--host', type=str, default='localhost', help='the host to run the server on')
+    parser.add_argument('--replicaof', type=str, default=None, help='the host and port to replicate from')
+
     args = parser.parse_args()
-    storage = RedisStore(args.dir, args.dbfilename)
+    storage = RedisStore(args.dir, args.dbfilename, args.replicaof)
 
     asyncio.run(main(storage, args.port))

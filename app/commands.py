@@ -62,6 +62,4 @@ class RedisAction:
         return self.storage.fetch_all_keys()
 
     def get_info(self, data):
-        return {
-            "role": "master",
-        }
+        return "role:master"

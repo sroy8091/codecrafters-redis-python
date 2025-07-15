@@ -9,6 +9,7 @@ class Action(Enum):
     GET = "GET"
     CONFIG = "CONFIG"
     KEYS = "KEYS"
+    INFO = "INFO"
 
 
 class RedisAction:
@@ -19,7 +20,8 @@ class RedisAction:
             "SET": self.set_memory,
             "GET": self.get_memory,
             "CONFIG": self.get_config,
-            "KEYS": self.get_keys
+            "KEYS": self.get_keys,
+            "INFO": self.get_info,
         }
         self.storage = storage
 
@@ -58,3 +60,8 @@ class RedisAction:
 
     def get_keys(self, data):
         return self.storage.fetch_all_keys()
+
+    def get_info(self, data):
+        return {
+            "role": "master",
+        }

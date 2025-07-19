@@ -4,15 +4,15 @@ import struct
 from typing import Any
 
 from app.expiry import check_expiry, get_current_time
-
+from app.metadata import ServerMetadata
 
 class RedisStore:
-    def __init__(self, __dir: str, dbfilename: str, replicaof: str):
+    def __init__(self, __dir: str, dbfilename: str, metadata: ServerMetadata):
         self.memory = dict()
         self.dir = __dir
         self.dbfilename = dbfilename
         self.rdb_path = None
-        self.replicaof = replicaof.split(":") if replicaof is not None else None
+        self.metadata = metadata
 
         if self.dir is not None and self.dbfilename is not None:
             self.rdb_path = os.path.join(self.dir, self.dbfilename)
@@ -68,8 +68,8 @@ class RedisStore:
     def get_dbfilename(self):
         return ["dbfilename", self.dbfilename]
 
-    def get_replicaof(self):
-        return self.replicaof
+    def get_metadata(self) -> str:
+        return self.metadata.to_str()
     
     def store(self, key: str, value: Any, expiry: int):
         if isinstance(self.memory, dict):

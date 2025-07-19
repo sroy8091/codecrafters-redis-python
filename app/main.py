@@ -3,6 +3,7 @@ import argparse
 
 from app.memory import RedisStore
 from app.server import ServerHandler
+from app.metadata import ServerMetadata
 
 async def main(storage, port):
     handler = ServerHandler(storage)
@@ -24,6 +25,7 @@ if __name__ == "__main__":
     parser.add_argument('--replicaof', type=str, default=None, help='the host and port to replicate from')
 
     args = parser.parse_args()
-    storage = RedisStore(args.dir, args.dbfilename, args.replicaof)
+    metadata = ServerMetadata(args.replicaof, "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb", 0)
+    storage = RedisStore(args.dir, args.dbfilename, metadata)
 
     asyncio.run(main(storage, args.port))

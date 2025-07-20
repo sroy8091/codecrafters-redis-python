@@ -1,9 +1,11 @@
 import asyncio
 import argparse
 
-from app.memory import RedisStore
-from app.server import ServerHandler
-from app.metadata import ServerMetadata
+from app.data.memory import RedisStore
+from app.data.metadata import ServerMetadata
+from app.handshake import handshake
+from app.server.handler import ServerHandler
+
 
 async def main(storage, port):
     handler = ServerHandler(storage)
@@ -12,6 +14,7 @@ async def main(storage, port):
     print(f'Serving on {addrs}')
 
     async with server:
+        asyncio.create_task(handshake(storage.metadata))
         await server.serve_forever()
 
 

@@ -3,6 +3,7 @@ from app.decorators.singleton import singleton
 @singleton
 class ServerMetadata:
     def __init__(self, replicaof: str, master_replid: str, master_repl_offset: int) -> None:
+        self.replicaof = replicaof
         self.role = "slave" if replicaof is not None else "master"
         self.master_replid = master_replid
         self.master_repl_offset = master_repl_offset

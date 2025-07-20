@@ -1,6 +1,6 @@
 from enum import Enum
 
-from app.RESPCodec import RESPDecoder, RESPEncoder
+from app.resp.RESPCodec import RESPDecoder, RESPEncoder
 
 class Action(Enum):
     PING = "PING"

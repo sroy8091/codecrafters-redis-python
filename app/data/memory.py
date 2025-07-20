@@ -3,8 +3,8 @@ import os
 import struct
 from typing import Any
 
-from app.expiry import check_expiry, get_current_time
-from app.metadata import ServerMetadata
+from app.data.expiry import check_expiry, get_current_time
+from app.data.metadata import ServerMetadata
 
 class RedisStore:
     def __init__(self, __dir: str, dbfilename: str, metadata: ServerMetadata):

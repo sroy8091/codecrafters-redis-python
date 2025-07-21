@@ -14,8 +14,6 @@ class SimpleCommand(Enum):
 
 class StreamingCommand(Enum):
     PSYNC = "PSYNC"
-    MONITOR = "MONITOR"
-    # Add more streaming/multi-response commands as needed
 
 class RedisAction:
     handlers = {}
@@ -27,10 +25,26 @@ class RedisAction:
             return func
         return decorator
 
+    @staticmethod
+    def propagate_to_replicas(command_name):
+        def decorator(func):
+            def wrapper(self, args, writer=None, *f_args, **f_kwargs):
+                result = func(self, args, writer=writer, *f_args, **f_kwargs)
+                # Only propagate if we are master and have replicas
+                if self.storage.metadata.role == "master":
+                    from app.resp.RESPCodec import RESPEncoder
+                    encoder = RESPEncoder()
+                    encoded = encoder.encode([command_name] + args)
+                    for w in self.storage.metadata.replica_writers:
+                        w.write(encoded)
+                return result
+            return wrapper
+        return decorator
+
     def __init__(self, storage):
         self.storage = storage
 
-    def handle_input(self, data: bytes):
+    def handle_input(self, data: bytes, writer=None):
         decoder = RESPDecoder()
         encoder = RESPEncoder()
         ins = decoder.decode(data)
@@ -43,7 +57,8 @@ class RedisAction:
             command, *args = ins
         handler = self.handlers.get(command.upper())
         if handler:
-            result = handler(self, args)
+            # Pass writer to all handlers
+            result = handler(self, args, writer=writer)
             if isinstance(result, types.AsyncGeneratorType) or isinstance(result, types.GeneratorType):
                 return result
             else:
@@ -52,15 +67,16 @@ class RedisAction:
             return encoder.encode("ERR: Unknown command")
 
 @RedisAction.command("PING")
-def handle_ping(self, args):
+def handle_ping(self, args, writer=None):
     return "PONG"
 
 @RedisAction.command("ECHO")
-def handle_echo(self, args):
+def handle_echo(self, args, writer=None):
     return args[0]
 
 @RedisAction.command("SET")
-def handle_set(self, data: list):
+@RedisAction.propagate_to_replicas("SET")
+def handle_set(self, data: list, writer=None):
     if len(data) > 2:
         expiry = int(data[-1]) if data[-2] == "px" else int(data[-1])
         data = data[:2]
@@ -72,30 +88,30 @@ def handle_set(self, data: list):
     return "OK"
 
 @RedisAction.command("GET")
-def handle_get(self, data):
+def handle_get(self, data, writer=None):
     return self.storage.fetch(data[0])
 
 @RedisAction.command("CONFIG")
-def handle_config(self, data):
+def handle_config(self, data, writer=None):
     if data[-1] == "dir":
         return self.storage.get_dir()
     else:
         return self.storage.get_dbfielname()
 
 @RedisAction.command("KEYS")
-def handle_keys(self, data):
+def handle_keys(self, data, writer=None):
     return self.storage.fetch_all_keys()
 
 @RedisAction.command("INFO")
-def handle_info(self, data):
+def handle_info(self, data, writer=None):
     return self.storage.get_metadata_str()
 
 @RedisAction.command("REPLCONF")
-def handle_replconf(self, data):
+def handle_replconf(self, data, writer=None):
     return "OK"
 
 @RedisAction.command("PSYNC")
-async def handle_psync(self, data):
+async def handle_psync(self, data, writer=None):
     encoder = RESPEncoder()
     # 1. Send FULLRESYNC
     yield encoder.encode(f"FULLRESYNC {self.storage.metadata.master_replid} 0")
@@ -112,4 +128,7 @@ async def handle_psync(self, data):
     minimal_rdb = b"REDIS0011\xff"
     header = f"${len(minimal_rdb)}\r\n".encode()
     yield header + minimal_rdb
+    # Register the replica writer if master
+    if self.storage.metadata.role == "master" and writer is not None:
+        self.storage.metadata.replica_writers.append(writer)
     

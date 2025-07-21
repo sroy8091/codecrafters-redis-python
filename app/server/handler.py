@@ -17,7 +17,7 @@ class ServerHandler:
                     print("Client disconnected")
                     break
 
-                result = self.action.handle_input(data)
+                result = self.action.handle_input(data, writer)
                 # Handle async generator (streaming)
                 if isinstance(result, types.AsyncGeneratorType):
                     async for chunk in result:

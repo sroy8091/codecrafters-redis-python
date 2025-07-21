@@ -3,8 +3,9 @@ import argparse
 
 from app.data.memory import RedisStore
 from app.data.metadata import ServerMetadata
-from app.handshake import handshake
+from app.server.handshake import handshake
 from app.server.handler import ServerHandler
+# No direct import from app.commands, but update if needed in future.
 
 
 async def main(storage, port):

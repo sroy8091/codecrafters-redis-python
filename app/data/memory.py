@@ -68,7 +68,7 @@ class RedisStore:
     def get_dbfilename(self):
         return ["dbfilename", self.dbfilename]
 
-    def get_metadata(self) -> str:
+    def get_metadata_str(self) -> str:
         return self.metadata.to_str()
     
     def store(self, key: str, value: Any, expiry: int):

@@ -2,16 +2,6 @@ from enum import Enum
 
 from app.resp.RESPCodec import RESPDecoder, RESPEncoder
 
-class Action(Enum):
-    PING = "PING"
-    ECHO = "ECHO"
-    SET = "SET"
-    GET = "GET"
-    CONFIG = "CONFIG"
-    KEYS = "KEYS"
-    INFO = "INFO"
-
-
 class RedisAction:
     def __init__(self, storage):
         self.resolver = {
@@ -23,6 +13,7 @@ class RedisAction:
             "KEYS": self.get_keys,
             "INFO": self.get_info,
             "REPLCONF": self.replconf,
+            "PSYNC": self.psync,
         }
         self.storage = storage
 
@@ -63,10 +54,10 @@ class RedisAction:
         return self.storage.fetch_all_keys()
 
     def get_info(self, data):
-        return self.storage.get_metadata()
+        return self.storage.get_metadata_str()
 
     def replconf(self, data):
         return "OK"
     
     def psync(self, data):
-        return f"FULLRESYNC {self.storage.get_metadata().repl_id} 0"
+        return f"FULLRESYNC {self.storage.metadata.master_replid} 0"

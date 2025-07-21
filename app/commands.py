@@ -22,6 +22,7 @@ class RedisAction:
             "CONFIG": self.get_config,
             "KEYS": self.get_keys,
             "INFO": self.get_info,
+            "REPLCONF": self.replconf,
         }
         self.storage = storage
 
@@ -63,3 +64,6 @@ class RedisAction:
 
     def get_info(self, data):
         return self.storage.get_metadata()
+
+    def replconf(self, data):
+        return "OK"

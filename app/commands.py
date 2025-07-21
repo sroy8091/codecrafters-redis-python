@@ -67,3 +67,6 @@ class RedisAction:
 
     def replconf(self, data):
         return "OK"
+    
+    def psync(self, data):
+        return f"FULLRESYNC {self.storage.get_metadata().repl_id} 0"

@@ -15,6 +15,7 @@ async def handshake(metadata: ServerMetadata, port: int):
         await send_command(reader, writer, encoder, ["PING"])
         await send_command(reader, writer, encoder, ["replconf", "listening-port", str(port)])
         await send_command(reader, writer, encoder, ["REPLCONF", "capa", "psync2"])
+        await send_command(reader, writer, encoder, ["PSYNC", "?", "-1"])
     except Exception as e:
         print("Unable to connect to master")
 

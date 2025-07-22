@@ -73,7 +73,8 @@ class RedisAction:
 
 @RedisAction.command("PING")
 def handle_ping(self, args, writer=None):
-    return "PONG"
+    from app.resp.RESPCodec import SimpleString
+    return SimpleString("PONG")
 
 @RedisAction.command("ECHO")
 def handle_echo(self, args, writer=None):

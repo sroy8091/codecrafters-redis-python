@@ -80,7 +80,10 @@ class RedisStore:
 
     def fetch(self, key):
         if isinstance(self.memory, dict):
-            return check_expiry(self.memory.get(key))
+            if self.memory.get(key) is not None:
+                return check_expiry(self.memory.get(key))
+            else:
+                return None
         else:
             with open(self.memory, "r") as f:
                 # TODO we are loading the whole RDB file for each get, that's not good

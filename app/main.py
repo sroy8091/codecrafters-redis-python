@@ -15,7 +15,7 @@ async def main(storage, port):
     print(f'Serving on {addrs}')
 
     async with server:
-        asyncio.create_task(handshake(storage.metadata, port))
+        asyncio.create_task(handshake(storage.metadata, port, storage))
         await server.serve_forever()
 
 

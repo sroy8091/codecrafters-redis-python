@@ -1,6 +1,6 @@
 from enum import Enum
 import types
-from app.resp.RESPCodec import RESPDecoder, RESPEncoder
+from app.resp.RESPCodec import RESPDecoder, RESPEncoder, SimpleString
 import os
 import inspect
 
@@ -67,6 +67,7 @@ class RedisAction:
             if isinstance(result, types.AsyncGeneratorType) or isinstance(result, types.GeneratorType):
                 return result
             else:
+                print(f"Command {command} returned: {result}")
                 return encoder.encode(result)
         else:
             return encoder.encode("ERR: Unknown command")
@@ -91,6 +92,9 @@ async def handle_set(self, data: list, writer=None):
         self.storage.store(data[0], data[1], -1)
     
     print(f"SET {data[0]} {data[1]}")
+    # Replicas don't respond to SET commands from master
+    if self.storage.metadata.role == "slave":
+        return None
     return "OK"
 
 @RedisAction.command("GET")
@@ -114,6 +118,9 @@ def handle_info(self, data, writer=None):
 
 @RedisAction.command("REPLCONF")
 def handle_replconf(self, data, writer=None):
+    if data[0] == "GETACK" and self.storage.metadata.role == "slave":
+        print(f"REPLCONF received: {data}")
+        return ["REPLCONF", "ACK", "0"]
     return "OK"
 
 @RedisAction.command("PSYNC")

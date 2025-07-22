@@ -89,29 +89,61 @@ async def handle_fullresync_and_rdb(reader, role):
     else:
         raise Exception(f"Unexpected FULLRESYNC format: {data[:10]}")
     
-    # Parse RDB bulk string
-    if pos >= len(data) or data[pos:pos+1] != b'$':
-        raise Exception(f"Expected RDB bulk string after FULLRESYNC, got: {data[pos:pos+10]}")
-    
-    rdb_header_end = data.find(b'\r\n', pos)
-    if rdb_header_end == -1:
-        raise Exception("Invalid RDB bulk string format")
+    # Parse RDB bulk string - it might be in the same packet or the next one
+    if pos >= len(data):
+        # RDB data is in the next packet, read it
+        print(f"[{role}] RDB data not in FULLRESYNC packet, reading next packet...")
+        rdb_data = await reader.read(1024)
+        if not rdb_data:
+            raise Exception("Connection closed while waiting for RDB data")
         
-    rdb_size = int(data[pos+1:rdb_header_end])
-    pos = rdb_header_end + 2
-    
-    print(f"[{role}] RDB size: {rdb_size} bytes")
-    
-    # Extract RDB data
-    if rdb_size > 0:
-        rdb_data = data[pos:pos + rdb_size]
-        pos += rdb_size
-        print(f"[{role}] RDB transfer complete ({rdb_size} bytes received)")
+        if rdb_data[0:1] != b'$':
+            raise Exception(f"Expected RDB bulk string, got: {rdb_data[:10]}")
+        
+        rdb_header_end = rdb_data.find(b'\r\n')
+        if rdb_header_end == -1:
+            raise Exception("Invalid RDB bulk string format")
+            
+        rdb_size = int(rdb_data[1:rdb_header_end])
+        rdb_content_start = rdb_header_end + 2
+        
+        print(f"[{role}] RDB size: {rdb_size} bytes")
+        
+        # Extract RDB data
+        if rdb_size > 0:
+            actual_rdb_data = rdb_data[rdb_content_start:rdb_content_start + rdb_size]
+            print(f"[{role}] RDB transfer complete ({len(actual_rdb_data)} bytes received)")
+        else:
+            print(f"[{role}] Empty RDB received - no data to transfer")
+        
+        # Return any remaining commands that came after RDB
+        remaining_pos = rdb_content_start + rdb_size
+        remaining_commands = rdb_data[remaining_pos:] if remaining_pos < len(rdb_data) else b''
+        
+    elif data[pos:pos+1] != b'$':
+        raise Exception(f"Expected RDB bulk string after FULLRESYNC, got: {data[pos:pos+10]}")
     else:
-        print(f"[{role}] Empty RDB received - no data to transfer")
+        # RDB data is in the same packet
+        rdb_header_end = data.find(b'\r\n', pos)
+        if rdb_header_end == -1:
+            raise Exception("Invalid RDB bulk string format")
+            
+        rdb_size = int(data[pos+1:rdb_header_end])
+        pos = rdb_header_end + 2
+        
+        print(f"[{role}] RDB size: {rdb_size} bytes")
+        
+        # Extract RDB data
+        if rdb_size > 0:
+            rdb_data = data[pos:pos + rdb_size]
+            pos += rdb_size
+            print(f"[{role}] RDB transfer complete ({rdb_size} bytes received)")
+        else:
+            print(f"[{role}] Empty RDB received - no data to transfer")
+        
+        # Return any remaining commands that came with RDB
+        remaining_commands = data[pos:] if pos < len(data) else b''
     
-    # Return any remaining commands that came with RDB
-    remaining_commands = data[pos:] if pos < len(data) else b''
     if remaining_commands:
         print(f"[{role}] Found commands after RDB: {remaining_commands}")
     
@@ -141,7 +173,7 @@ async def handle_command_propagation(reader, writer, storage, role, initial_comm
             print(f"[{role}] Received command from master: {data}")
             
             # Process all commands in the data (bulk or single)
-            await process_commands_from_stream(decoder, action, data, role)
+            await process_commands_from_stream(decoder, action, data, role, writer)
             
         except Exception as e:
             print(f"[{role}] Error in command propagation: {e}")
@@ -150,7 +182,7 @@ async def handle_command_propagation(reader, writer, storage, role, initial_comm
             break
 
 
-async def process_commands_from_stream(decoder, action, data, role):
+async def process_commands_from_stream(decoder, action, data, role, writer=None):
     """Process all RESP commands from a data stream (handles bulk commands)"""
     if not action:
         return
@@ -159,14 +191,14 @@ async def process_commands_from_stream(decoder, action, data, role):
         # Feed data to decoder and process first command
         first_command = decoder.decode(data)
         if first_command:
-            await execute_command(action, first_command, role)
+            await execute_command(action, first_command, role, writer)
         
         # Process all remaining commands from decoder buffer
         while True:
             command = decoder.decode(b'')  # Process from internal buffer
             if command is None:
                 break
-            await execute_command(action, command, role)
+            await execute_command(action, command, role, writer)
             
     except Exception as e:
         print(f"[{role}] Error processing commands: {e}")
@@ -174,7 +206,7 @@ async def process_commands_from_stream(decoder, action, data, role):
         traceback.print_exc()
 
 
-async def execute_command(action, command, role):
+async def execute_command(action, command, role, writer=None):
     """Execute a single command on the replica"""
     print(f"[{role}] Parsed command: {command}")
     
@@ -182,8 +214,15 @@ async def execute_command(action, command, role):
     encoder = RESPEncoder()
     command_bytes = encoder.encode(command)
     
-    # Execute the command locally (don't send response back to master)
-    await action.handle_input(command_bytes)
+    # Execute the command and get response
+    result = await action.handle_input(command_bytes, writer=writer)
+    
+    # Send any response back to master (RedisAction decides what needs responses)
+    if result and writer:
+        writer.write(result)
+        await writer.drain()
+        print(f"[{role}] Sent response back to master")
+    
     print(f"[{role}] Command executed successfully")
 
 
